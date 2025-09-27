@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-tachometer-alt me-2"></i>Admin Dashboard</h2>
+    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">
+        <i class="fas fa-sign-out-alt me-1"></i>Logout
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <i class="fas fa-shopping-cart fa-2x text-primary mb-2"></i>
+                <h3 class="text-primary">{{ total_orders }}</h3>
+                <p class="mb-0">Total Orders</p>
+                {% if pending_orders > 0 %}
+                <small class="text-warning">{{ pending_orders }} pending</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                <h3 class="text-success">{{ format_currency(total_revenue) }}</h3>
+                <p class="mb-0">Total Revenue</p>
+                <small class="text-muted">{{ paid_orders }} paid orders</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-box fa-2x text-info mb-2"></i>
+                <h3 class="text-info">{{ total_products }}</h3>
+                <p class="mb-0">Total Products</p>
+                <small class="text-muted">{{ active_products }} active</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-warning mb-2"></i>
+                <h3 class="text-warning">{{ total_users }}</h3>
+                <p class="mb-0">Total Users</p>
+                {% if low_stock_products > 0 %}
+                <small class="text-danger">{{ low_stock_products }} low stock</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('admin_products') }}" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="fas fa-box me-1"></i> Manage Products
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('admin_orders') }}" class="btn btn-outline-success w-100 mb-2">
+                            <i class="fas fa-shopping-cart me-1"></i> View Orders
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('admin_categories') }}" class="btn btn-outline-info w-100 mb-2">
+                            <i class="fas fa-tags me-1"></i> Manage Categories
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-warning w-100 mb-2" onclick="refreshStats()">
+                            <i class="fas fa-sync me-1"></i> Refresh Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sales Chart -->
+{% if daily_sales %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line me-2"></i>Sales Overview (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Orders -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-clock me-2"></i>Recent Orders</h5>
+                <a href="{{ url_for('admin_orders') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_orders %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td><code>{{ order.order_number }}</code></td>
+                                <td>
+                                    <div>
+                                        <strong>{{ order.customer.first_name or '' }} {{ order.customer.last_name or '' }}</strong>
+                                        {% if order.customer.username %}
+                                        <br><small class="text-muted">@{{ order.customer.username }}</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td><strong>{{ format_currency(order.total_amount) }}</strong></td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.status.value == 'confirmed' else 'warning' if order.status.value == 'pending' else 'info' }}">
+                                        {{ order.status.value.title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.payment_status.value == 'finished' else 'warning' if order.payment_status.value == 'waiting' else 'danger' }}">
+                                        {{ order.payment_status.value.title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewOrderDetails({{ order.id }})">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No orders yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Order Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="orderModalBody">
+                <!-- Order details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+    // Sales chart
+    {% if daily_sales %}
+    const salesData = {{ daily_sales | safe }};
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: salesData.map(d => d.date),
+            datasets: [{
+                label: 'Revenue',
+                data: salesData.map(d => d.revenue),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }, {
+                label: 'Orders',
+                data: salesData.map(d => d.orders),
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                yAxisID: 'y1',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Revenue ($)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Number of Orders'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    function viewOrderDetails(orderId) {
+        fetch(`/api/orders/${orderId}`)
+            .then(response => response.json())
+            .then(data => {
+                const modalBody = document.getElementById('orderModalBody');
+                modalBody.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Order Information</h6>
+                            <p><strong>Order #:</strong> ${data.order_number}</p>
+                            <p><strong>Total:</strong> $${data.total_amount}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="badge bg-info">${data.status}</span>
+                            </p>
+                            <p><strong>Payment:</strong> 
+                                <span class="badge bg-warning">${data.payment_status}</span>
+                            </p>
+                            <p><strong>Date:</strong> ${new Date(data.created_at).toLocaleString()}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Customer Information</h6>
+                            <p><strong>Name:</strong> ${data.customer.name || 'N/A'}</p>
+                            <p><strong>Username:</strong> @${data.customer.username || 'N/A'}</p>
+                            <p><strong>Telegram ID:</strong> ${data.customer.telegram_id}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6>Order Items</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.items.map(item => `
+                                    <tr>
+                                        <td>${item.product_name}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>$${item.price}</td>
+                                        <td>$${item.total}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                const modal = new bootstrap.Modal(document.getElementById('orderModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error fetching order details:', error);
+                alert('Error loading order details');
+            });
+    }
+
+    function refreshStats() {
+        location.reload();
+    }
+</script>
+{% endblock %}
