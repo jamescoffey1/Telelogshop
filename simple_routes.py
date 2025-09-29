@@ -23,7 +23,7 @@ def index():
                          categories=categories,
                          shop_name=Config.SHOP_NAME)
 
-def register_routes(app)
+def register_routes(app):
 
 @app.route(f'/telegram-webhook/{Config.WEBHOOK_SECRET}', methods=['POST'])
 def telegram_webhook():
