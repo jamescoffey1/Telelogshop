@@ -110,7 +110,8 @@ from models import *
 # Initialize bot application
 bot_application = initialize_bot()
 
-from simple_routes import *
+import simple_routes
+simple_routes.register_routes(app)
 
 with app.app_context():
     db.create_all()  # ✅ Creates tele1.db if fallback
