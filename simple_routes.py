@@ -9,7 +9,7 @@ from config import Config
 from utils import admin_required, format_currency
 from datetime import datetime, timedelta
 
-def register_routes(app)
+def register_routes(app):
 import logging
 logger = logging.getLogger(__name__)
 
