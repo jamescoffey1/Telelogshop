@@ -24,53 +24,43 @@ def index():
                          shop_name=Config.SHOP_NAME)
 
 def register_routes(app):
-
-@app.route(f'/telegram-webhook/{Config.WEBHOOK_SECRET}', methods=['POST'])
-def telegram_webhook():
-    """Handle Telegram webhook"""
-    try:
-        update_data = request.get_json()
-        if not update_data:
-            logger.error("No update data received")
-            return '', 400
-            
-        logger.debug(f"Received webhook update: {update_data}")
-        
-        # Get the global bot application
-        from app import bot_application
-        if not bot_application:
-            logger.error("Bot application not initialized")
-            return '', 500
-            
-        # Process the update using the initialized bot application
-        import asyncio
+    @app.route(f'/telegram-webhook/{Config.WEBHOOK_SECRET}', methods=['POST'])
+    def telegram_webhook():
+        """Handle Telegram webhook"""
         from telegram import Update
-        
-        # Parse the update
-        update = Update.de_json(update_data, bot_application.bot)
-        
-        if update:
-            # Schedule the update processing on the bot's persistent loop
-            from app import bot_loop
-            if bot_loop and not bot_loop.is_closed():
-                asyncio.run_coroutine_threadsafe(
-                    bot_application.process_update(update), 
-                    bot_loop
-                )
-                logger.debug("Successfully scheduled webhook update processing")
-            else:
-                logger.error("Bot loop is not available or closed")
+        import app as main_app  # import after app exists to avoid circular issue
+
+        try:
+            update_data = request.get_json()
+            if not update_data:
+                logger.error("No update data received")
+                return '', 400
+
+            logger.debug(f"Received webhook update: {update_data}")
+
+            if not main_app.bot_application:
+                logger.error("Bot application not initialized")
                 return '', 500
-        else:
-            logger.warning("Could not parse update")
-        
-        return '', 200
-        
-    except Exception as e:
-        logger.error(f"Error processing Telegram webhook: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return '', 500
+
+            update = Update.de_json(update_data, main_app.bot_application.bot)
+
+            if update:
+                if main_app.bot_loop and not main_app.bot_loop.is_closed():
+                    asyncio.run_coroutine_threadsafe(
+                        main_app.bot_application.process_update(update),
+                        main_app.bot_loop
+                    )
+                    logger.debug("Successfully scheduled webhook update processing")
+                else:
+                    logger.error("Bot loop is not available or closed")
+                    return '', 500
+            else:
+                logger.warning("Could not parse update")
+
+            return '', 200
+        except Exception as e:
+            logger.error(f"Error in webhook: {e}", exc_info=True)
+            return '', 500
 
 @app.route('/admin')
 def admin_dashboard():
