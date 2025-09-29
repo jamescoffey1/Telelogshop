@@ -108,7 +108,7 @@ def initialize_bot():
 from models import *
 
 # Initialize bot application
-initialize_bot()
+bot_application = initialize_bot()
 
 from simple_routes import *
 
