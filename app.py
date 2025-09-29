@@ -44,9 +44,13 @@ db.init_app(app)
 # Global bot application instance
 bot_application = None
 
+# Global bot loop for persistent async operations
+bot_loop = None
+bot_loop_thread = None
+
 def initialize_bot():
-    """Initialize the Telegram bot for webhook mode"""
-    global bot_application
+    """Initialize the Telegram bot for webhook mode with persistent loop"""
+    global bot_application, bot_loop, bot_loop_thread
     
     try:
         from config import Config
@@ -54,11 +58,45 @@ def initialize_bot():
             logger.warning("No Telegram bot token configured - bot will not start")
             return None
             
+        # Check WEBHOOK_SECRET security
+        webhook_secret = getattr(Config, "WEBHOOK_SECRET", "")
+        if not webhook_secret or webhook_secret == "dev-webhook-secret-123":
+            logger.error("WEBHOOK_SECRET is not set or using default value. This is a security risk for production!")
+            if os.environ.get("RAILWAY_STATIC_URL"):  # Production check
+                raise ValueError("WEBHOOK_SECRET must be set to a secure value for production deployment")
+            
         from working_bot import TelegramBot
         bot = TelegramBot()
         bot_application = bot.get_application()
         
-        logger.info("Telegram bot initialized for webhook mode")
+        # Start persistent loop in background thread
+        def run_bot_loop():
+            global bot_loop
+            import asyncio
+            try:
+                # Create and set the event loop for this thread
+                bot_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(bot_loop)
+                
+                # Initialize the bot application
+                bot_loop.run_until_complete(bot.init_for_webhook())
+                logger.info("Telegram bot initialized for webhook mode")
+                
+                # Keep the loop running forever
+                bot_loop.run_forever()
+            except Exception as e:
+                logger.error(f"Failed to run bot loop: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        import threading
+        bot_loop_thread = threading.Thread(target=run_bot_loop, daemon=True)
+        bot_loop_thread.start()
+        
+        # Give the loop time to start
+        import time
+        time.sleep(1)
+        
         return bot_application
     except Exception as e:
         logger.error(f"Failed to initialize Telegram bot: {e}")

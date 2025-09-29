@@ -32,69 +32,35 @@ def telegram_webhook():
             logger.error("No update data received")
             return '', 400
             
-        logger.info(f"Received webhook update: {update_data}")
+        logger.debug(f"Received webhook update: {update_data}")
         
-        # Process the update directly using the working bot
-        import threading
+        # Get the global bot application
+        from app import bot_application
+        if not bot_application:
+            logger.error("Bot application not initialized")
+            return '', 500
+            
+        # Process the update using the initialized bot application
         import asyncio
+        from telegram import Update
         
-        def process_update():
-            try:
-                # Create a new event loop for this thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                # Import and create bot instance
-                from working_bot import TelegramBot
-                from telegram import Update, Bot
-                from config import Config
-                
-                # Create bot and update objects
-                bot = Bot(token=Config.TELEGRAM_BOT_TOKEN)
-                update = Update.de_json(update_data, bot)
-                
-                if update:
-                    # Create bot instance and process update directly
-                    telegram_bot = TelegramBot()
-                    
-                    # Create a simple mock context
-                    class MockContext:
-                        def __init__(self):
-                            self.user_data = {}
-                            self.chat_data = {}
-                            self.bot_data = {}
-                    
-                    mock_context = MockContext()
-                    
-                    # Handle different types of updates within app context
-                    from app import app
-                    with app.app_context():
-                        if update.message:
-                            if update.message.text and update.message.text.startswith('/start'):
-                                loop.run_until_complete(telegram_bot.start_command(update, mock_context))
-                            elif update.message.text and 'Name:' in update.message.text:
-                                # Handle product addition text
-                                loop.run_until_complete(telegram_bot.handle_product_addition(update, mock_context))
-                            else:
-                                # Handle other text messages 
-                                logger.info(f"Received message: {update.message.text}")
-                        elif update.callback_query:
-                            loop.run_until_complete(telegram_bot.button_handler(update, mock_context))
-                    
-                    logger.info("Successfully processed webhook update")
-                else:
-                    logger.warning("Could not parse update")
-                    
-            except Exception as e:
-                logger.error(f"Error in webhook processing thread: {e}")
-                import traceback
-                traceback.print_exc()
-            finally:
-                loop.close()
+        # Parse the update
+        update = Update.de_json(update_data, bot_application.bot)
         
-        # Process in a separate thread to avoid blocking the HTTP response
-        thread = threading.Thread(target=process_update, daemon=True)
-        thread.start()
+        if update:
+            # Schedule the update processing on the bot's persistent loop
+            from app import bot_loop
+            if bot_loop and not bot_loop.is_closed():
+                asyncio.run_coroutine_threadsafe(
+                    bot_application.process_update(update), 
+                    bot_loop
+                )
+                logger.debug("Successfully scheduled webhook update processing")
+            else:
+                logger.error("Bot loop is not available or closed")
+                return '', 500
+        else:
+            logger.warning("Could not parse update")
         
         return '', 200
         
@@ -265,3 +231,86 @@ def admin_orders():
     return render_template('admin/orders.html', 
                          orders=orders,
                          format_currency=format_currency)
+
+@app.route('/webhook/setup', methods=['POST'])
+def setup_webhook():
+    """Setup webhook with Telegram"""
+    try:
+        # Get the webhook URL
+        webhook_url = request.json.get('webhook_url')
+        if not webhook_url:
+            # Auto-detect from environment
+            domain = os.environ.get('RAILWAY_STATIC_URL') or os.environ.get('REPLIT_DOMAINS', '').split(',')[0]
+            if domain:
+                webhook_url = f"https://{domain}/telegram-webhook/{Config.WEBHOOK_SECRET}"
+            else:
+                return jsonify({'error': 'No webhook URL provided or detected'}), 400
+        
+        # Setup webhook asynchronously
+        import asyncio
+        import threading
+        from working_bot import working_bot
+        
+        result = {'success': False, 'error': None}
+        
+        def setup_webhook_async():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success = loop.run_until_complete(working_bot.setup_webhook(webhook_url))
+                result['success'] = success
+                if not success:
+                    result['error'] = 'Failed to set webhook'
+            except Exception as e:
+                result['error'] = str(e)
+            finally:
+                loop.close()
+        
+        thread = threading.Thread(target=setup_webhook_async)
+        thread.start()
+        thread.join(timeout=10)  # Wait up to 10 seconds
+        
+        if result['success']:
+            return jsonify({'success': True, 'webhook_url': webhook_url})
+        else:
+            return jsonify({'error': result['error'] or 'Timeout setting webhook'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error setting up webhook: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/webhook/delete', methods=['POST'])
+def delete_webhook():
+    """Delete webhook from Telegram"""
+    try:
+        import asyncio
+        import threading
+        from working_bot import working_bot
+        
+        result = {'success': False, 'error': None}
+        
+        def delete_webhook_async():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success = loop.run_until_complete(working_bot.delete_webhook())
+                result['success'] = success
+                if not success:
+                    result['error'] = 'Failed to delete webhook'
+            except Exception as e:
+                result['error'] = str(e)
+            finally:
+                loop.close()
+        
+        thread = threading.Thread(target=delete_webhook_async)
+        thread.start()
+        thread.join(timeout=10)  # Wait up to 10 seconds
+        
+        if result['success']:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': result['error'] or 'Timeout deleting webhook'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error deleting webhook: {e}")
+        return jsonify({'error': str(e)}), 500

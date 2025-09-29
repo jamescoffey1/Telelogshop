@@ -85,15 +85,43 @@ python sample_data.py
 python main.py
 ```
 
-The application will start both the web server (port 5000) and Telegram bot simultaneously.
+The application starts the web server on port 5000. The Telegram bot runs in **webhook mode** (no polling).
 
-## API Configuration
+## Railway Deployment
+
+This bot is optimized for Railway deployment with webhook mode for better performance and reliability.
+
+### Deployment Steps
+
+1. **Connect Repository**: Link this repo to Railway
+2. **Environment Variables**: Configure required variables in Railway dashboard
+3. **Deploy**: Railway will automatically deploy with the correct configuration
+4. **Setup Webhook**: After deployment, configure the Telegram webhook
+
+### Environment Variables for Railway
+
+```bash
+# Required
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+SESSION_SECRET=your-session-secret-here
+WEBHOOK_SECRET=your-webhook-secret-123
+
+# Optional
+SHOP_NAME=Your Shop Name
+ADMIN_TELEGRAM_IDS=123456789,987654321
+ADMIN_PASSWORD=your-admin-password
+NOWPAYMENTS_API_KEY=your-nowpayments-api-key
+NOWPAYMENTS_IPN_SECRET=your-ipn-secret-key
+```
 
 ### Telegram Bot Setup
 
 1. Create a new bot via [@BotFather](https://t.me/botfather)
 2. Get your bot token and add it to `TELEGRAM_BOT_TOKEN`
-3. Set webhook URL to `https://yourapp.replit.app/telegram/webhook`
+3. The webhook will be automatically configured at:
+   ```
+   https://your-railway-domain.railway.app/telegram-webhook/{WEBHOOK_SECRET}
+   ```
 
 ### NowPayments Setup
 

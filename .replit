@@ -6,7 +6,7 @@ packages = ["cacert", "cargo", "glibcLocales", "libffi", "libiconv", "libxcrypt"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+run = ["gunicorn", "--bind=0.0.0.0:$PORT", "--reuse-port", "main:app"]
 
 [workflows]
 runButton = "Project"
@@ -32,6 +32,10 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 32967
+externalPort = 3001
 
 [[ports]]
 localPort = 45321

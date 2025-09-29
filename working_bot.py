@@ -1196,35 +1196,41 @@ What would you like to do?
             await self.application.initialize()
             await self.application.start()
         
-    async def run_bot(self):
-        """Run the bot in polling mode (for testing)"""
-        self.application = Application.builder().token(Config.TELEGRAM_BOT_TOKEN).build()
-        self.setup_handlers()
-        
-        await self.application.initialize()
-        await self.application.start()
-        
-        # Use polling for development/testing
-        await self.application.updater.start_polling()
-        logger.info("Bot started with polling...")
-        
-        # Keep the bot running
+    async def setup_webhook(self, webhook_url):
+        """Set up webhook with Telegram"""
         try:
-            while True:
-                await asyncio.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("Bot stopped")
-        finally:
-            await self.application.updater.stop()
-            await self.application.stop()
-            await self.application.shutdown()
+            if not self.application:
+                self.application = self.get_application()
+                await self.init_for_webhook()
+            
+            # Set webhook URL
+            await self.application.bot.set_webhook(
+                url=webhook_url,
+                allowed_updates=["message", "callback_query"]
+            )
+            logger.info(f"Webhook set successfully: {webhook_url}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set webhook: {e}")
+            return False
+    
+    async def delete_webhook(self):
+        """Delete the webhook"""
+        try:
+            if not self.application:
+                self.application = self.get_application()
+                await self.init_for_webhook()
+            
+            await self.application.bot.delete_webhook()
+            logger.info("Webhook deleted successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete webhook: {e}")
+            return False
 
-# Global bot instance for standalone mode
+# Global bot instance for Flask integration
 working_bot = TelegramBot()
 
-def start_working_bot():
-    """Start the working bot"""
-    asyncio.run(working_bot.run_bot())
-
 if __name__ == "__main__":
-    start_working_bot()
+    print("This bot now runs in webhook mode only.")
+    print("Start the Flask app to use the bot.")

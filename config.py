@@ -16,8 +16,8 @@ class Config:
     # Shop configuration
     SHOP_NAME = os.environ.get("SHOP_NAME", "TripleLog Shop")
     
-    # Webhook configuration
-    WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "dev-webhook-secret-123")
+    # Webhook configuration (REQUIRED for production)
+    WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
     
     # Admin configuration (add your Telegram user ID here)
     ADMIN_TELEGRAM_IDS = [int(x) for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").split(",") if x.strip()]
