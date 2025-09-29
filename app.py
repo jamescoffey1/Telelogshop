@@ -48,18 +48,18 @@ def initialize_bot():
     from config import Config
     if not getattr(Config, "TELEGRAM_BOT_TOKEN", None):
         logger.warning("No Telegram bot token configured - bot will not start")
-        return None
+        return None, None
 
     from working_bot import TelegramBot
     bot = TelegramBot()
-    bot_application = bot.get_application()
 
     def run_bot_loop():
-        global bot_loop
+        global bot_loop, bot_application
         bot_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(bot_loop)
         try:
-            bot_loop.run_until_complete(bot.init_for_webhook())
+            # ✅ Actually build the Application here
+            bot_application = bot_loop.run_until_complete(bot.init_for_webhook())
             logger.info("Telegram bot initialized for webhook mode")
             bot_ready_event.set()  # Signal that bot is ready
             bot_loop.run_forever()
