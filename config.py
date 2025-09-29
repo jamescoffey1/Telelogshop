@@ -29,3 +29,6 @@ class Config:
     
     # Admin password for web interface
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+    
+    # Support configuration
+    SUPPORT_CONTACT = os.environ.get("SUPPORT_CONTACT", "@your_support_handle")
